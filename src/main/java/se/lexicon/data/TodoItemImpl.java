@@ -285,7 +285,9 @@ public class TodoItemImpl implements TodoItem{
     }
 
     @Override
-    public Todo findById(int id) { // todo: this method doesn't work
+    public Todo findById(int id) {
+        System.out.println("Attempting to find task with ID: " + id); // Debug statement
+
         String query = "SELECT * FROM todo_item WHERE todo_id = ?";
         try (
                 Connection connection = MySQLConnection.getConnection();
@@ -304,17 +306,22 @@ public class TodoItemImpl implements TodoItem{
 
                     // Retrieve the assignee information from the Person table
                     Person assignee = getPersonById(assigneeId);
-
-                    return new Todo(taskId, title, description, deadline, done, assignee);
+                    Todo todo = new Todo(taskId, title, description, deadline, done, assignee);
+                    printout(todo, Objects.requireNonNull(assignee));
+                    return todo;
+                } else {
+                    System.out.println("Todo with ID " + id + " not found.");
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
+            System.err.println("Error while executing SQL query: " + e.getMessage());
         }
 
-        System.out.println("Todo with ID " + id + " not found.");
         return null;
     }
+
+
 
     @Override
     public boolean delete(int id) {

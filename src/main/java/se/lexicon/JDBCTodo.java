@@ -43,7 +43,7 @@ public class JDBCTodo {
 //            task.findByAssignee(anders);
 //            task.findByUnassignedTodoItems();
 //            task.delete(8);
-            task.findById(6);
+//            task.findById(6);
 //            obj.create(mikael);
 //            obj.create(anders);
 //            obj.findAll();
