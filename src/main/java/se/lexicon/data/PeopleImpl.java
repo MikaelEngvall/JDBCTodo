@@ -10,7 +10,7 @@ import java.util.List;
 
 public class PeopleImpl implements People {
 
-
+    @Override
     public void create(Person person) {
 
         String query = "INSERT INTO person(first_name, last_name) VALUES(?, ?)";
