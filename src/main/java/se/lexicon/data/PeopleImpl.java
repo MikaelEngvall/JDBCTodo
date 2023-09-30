@@ -11,31 +11,34 @@ import java.util.List;
 public class PeopleImpl implements People {
 
     @Override
-    public void create(Person person) {
+    public Person create(Person person) {
 
         String query = "INSERT INTO person(first_name, last_name) VALUES(?, ?)";
         try (
                 Connection connection = MySQLConnection.getConnection();
-                PreparedStatement preparedStatement = connection.prepareStatement(query, PreparedStatement.RETURN_GENERATED_KEYS)
+                PreparedStatement preparedStatement = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)
         ) {
 
             preparedStatement.setString(1, person.getFirstName());
             preparedStatement.setString(2, person.getLastName());
 
             int rowsInserted = preparedStatement.executeUpdate();
-            if (rowsInserted > 0) {
-                System.out.println("Person created successfully!");
+            if (rowsInserted == 0) {
+                throw new SQLException("Person created unsuccessfully!");
             }
 
             try (ResultSet generatedKeys = preparedStatement.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
-                    int generatedPersonId = generatedKeys.getInt(1);
-                    System.out.println("generatedPersonId = " + generatedPersonId);
+                    person.setId(generatedKeys.getInt(1)); // Setting the ID to the person object
+//                    System.out.println("generatedPersonId = " + person.getId());
+                } else {
+                    throw new SQLException("Creation of person id failed!");
                 }
             }
-
+            return person;
         } catch (SQLException e) {
             e.printStackTrace();
+            return null;
         }
     }
 
@@ -89,9 +92,10 @@ public class PeopleImpl implements People {
         }
         // Print out the found persons
         if (!matchingPersons.isEmpty()) {
-            for (Person person : matchingPersons) {
-                System.out.println("Found Person: " + person.getFirstName() + " " + person.getLastName() + " with ID: " + person.getId());
-            }
+            System.out.println(matchingPersons.toString());
+//            for (Person person : matchingPersons) {
+//                System.out.println("Found Person: " + person.getFirstName() + " " + person.getLastName() + " with ID: " + person.getId());
+//            }
         } else {
             System.out.println("No persons found");
         }
@@ -103,7 +107,7 @@ public class PeopleImpl implements People {
         List<Person> matchingPersons = new ArrayList<>();
 
         try (Connection connection = MySQLConnection.getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM person WHERE first_name = ? OR last_name = ?")) {
+             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM person WHERE CONCAT(first_name, ' ', last_name) = ? OR first_name = ?")) {
 
             preparedStatement.setString(1, name); // I am looking for name in either firstName
             preparedStatement.setString(2, name); // or lastName
@@ -124,9 +128,10 @@ public class PeopleImpl implements People {
         }
         // Print out the found persons
         if (!matchingPersons.isEmpty()) {
-            for (Person person : matchingPersons) {
-                System.out.println("Found Person: " + person.getFirstName() + " " + person.getLastName() + " with ID: " + person.getId());
-            }
+            System.out.println(matchingPersons.toString());
+//            for (Person person : matchingPersons) {
+//                System.out.println("Found Person: " + person.getFirstName() + " " + person.getLastName() + " with ID: " + person.getId());
+//            }
         } else {
             System.out.println("No persons found with the name '" + name + "'.");
         }
@@ -134,30 +139,27 @@ public class PeopleImpl implements People {
     }
 
     @Override
-    public Person findById(int id) {
+    public Person findById(Integer id) {
         try (
                 Connection connection = MySQLConnection.getConnection();
-                PreparedStatement preparedStatement = connection.prepareStatement("select * from person where person_id = ? ")
+                PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM person WHERE person_id = ? ")
         ) {
             preparedStatement.setInt(1, id);
 
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                Person person = null;
-                if (resultSet.next()) {
-                    int personId = resultSet.getInt("person_id");
-                    String firstName = resultSet.getString("first_name");
-                    String lastName = resultSet.getString("last_name");
-                    person = new Person(personId, firstName, lastName);
-                }
-
-                System.out.println(person);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            Person person = null;
+            if (resultSet.next()) {
+                int personId = resultSet.getInt("person_id");
+                String firstName = resultSet.getString("first_name");
+                String lastName = resultSet.getString("last_name");
+                person = new Person(personId, firstName, lastName);
             }
-
+            return person;  // We cant return new Person(); here !!!!
 
         } catch (SQLException e) {
             e.printStackTrace();
+            return null;
         } // it will close -> first resultSet, preparedStatement, connection
-        return new Person();
     }
 
     @Override
@@ -166,19 +168,15 @@ public class PeopleImpl implements People {
         if (personIdExists(person.getId())) {
             try (Connection connection = MySQLConnection.getConnection();
                  PreparedStatement preparedStatement = connection.prepareStatement("DELETE FROM person WHERE person_id = ?")) {
-
                 preparedStatement.setInt(1, id);
-
-                int rowsDeleted = preparedStatement.executeUpdate();
-                if (rowsDeleted > 0) {
-                    System.out.println("Person with ID " + id + " deleted successfully from the database.");
-                } else {
-                    System.out.println("Person with ID " + id + " not found in the database.");
-                }
-
+                preparedStatement.executeUpdate();
+//                System.out.println("Person with ID " + id + " deleted from the database.");
             } catch (SQLException e) {
                 e.printStackTrace();
             }
+        } else {
+            System.out.println("Person with ID " + id + " not found in the database.");
+            return false;
         }
         return true;
     }

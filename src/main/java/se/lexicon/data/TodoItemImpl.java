@@ -12,50 +12,46 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 
 public class TodoItemImpl implements TodoItem{
 
     @Override
     public Todo create(Todo todo) {
-        // Check if a task with the same title, description, and assignee ID already exists
-        if (!taskExists(todo.getTitle(), todo.getDescription(), todo.getAssignee_id().getId())) {
-            String query = "INSERT INTO todo_item(title, description, deadline, done, assignee_id) VALUES(?, ?, ?, ?, ?)";
-            try (
-                    Connection connection = MySQLConnection.getConnection();
-                    PreparedStatement preparedStatement = connection.prepareStatement(query, PreparedStatement.RETURN_GENERATED_KEYS)
-            ) {
-                preparedStatement.setString(1, todo.getTitle());
-                preparedStatement.setString(2, todo.getDescription());
-                preparedStatement.setString(3, String.valueOf(todo.getDeadline()));
-                preparedStatement.setInt(4, todo.isDone() ? 1 : 0); // Use 1 for true, 0 for false
+        String query = "INSERT INTO todo_item(title, description, deadline, done, assignee_id) VALUES(?, ?, ?, ?, ?)";
+        try (
+                Connection connection = MySQLConnection.getConnection();
+                PreparedStatement preparedStatement = connection.prepareStatement(query, PreparedStatement.RETURN_GENERATED_KEYS)
+        ) {
+            preparedStatement.setString(1, todo.getTitle());
+            preparedStatement.setString(2, todo.getDescription());
+            preparedStatement.setString(3, String.valueOf(todo.getDeadline()));
+            preparedStatement.setInt(4, todo.isDone() ? 1 : 0); // Use 1 for true, 0 for false
+            if (todo.getAssignee_id() == null) {
+                preparedStatement.setNull(5, java.sql.Types.INTEGER);
+            } else {
                 preparedStatement.setInt(5, todo.getAssignee_id().getId());
+            }
 
-                int rowsInserted = preparedStatement.executeUpdate();
-                if (rowsInserted > 0) {
-                    System.out.println("Todo created successfully!");
-                }
-
+            int rowsInserted = preparedStatement.executeUpdate();
+            if (rowsInserted > 0) {
                 try (ResultSet generatedKeys = preparedStatement.getGeneratedKeys()) {
                     if (generatedKeys.next()) {
                         int generatedTodoId = generatedKeys.getInt(1);
-                        System.out.println("generatedTodoId = " + generatedTodoId);
+                        todo.setId(generatedTodoId); // Set the generated ID to the Todo object so we get the whole object back
+                        System.out.println("Todo created successfully!");
                     }
                 }
-
-            } catch (SQLException e) {
-                e.printStackTrace();
             }
-        } else {
-            System.out.println("A task with the same title, description, and assignee ID already exists.");
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
         return todo;
     }
 
 
+
     @Override
     public Todo update(Todo todo) {
-        if (todoExists(todo.getId())) {
             String query = "UPDATE todo_item SET title = ?, description = ?, deadline = ?, done = ?, assignee_id = ? WHERE todo_id = ?";
             try (
                     Connection connection = MySQLConnection.getConnection();
@@ -76,16 +72,13 @@ public class TodoItemImpl implements TodoItem{
             } catch (SQLException e) {
                 e.printStackTrace();
             }
-        } else {
-            System.out.println("Todo with ID " + todo.getId() + " not found. Update failed.");
-        }
-        return null;
+        return todo;
     }
 
 
     @Override
     public Collection<Todo> findAll() {
-        List<Todo> allTasks = new ArrayList<>();
+        Collection<Todo> allTasks = new ArrayList<>();
 
         try (Connection connection = MySQLConnection.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM todo_item")) {
@@ -101,19 +94,13 @@ public class TodoItemImpl implements TodoItem{
 
                     // Retrieve the assignee information from the Person table
                     Person assignee = getPersonById(assigneeId);
-
                     Todo todo = new Todo(id, title, description, deadline, done, assignee);
                     allTasks.add(todo);
-
-                    printout(todo, Objects.requireNonNull(assignee));
                 }
             }
-
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
-        // Print out the found tasks
         if (allTasks.isEmpty()) {
             System.out.println("No tasks found");
         }
@@ -144,15 +131,11 @@ public class TodoItemImpl implements TodoItem{
                     Person assignee = getPersonById(assigneeId);
                     Todo todo = new Todo(id, title, description, deadline, done, assignee);
                     tasksByStatus.add(todo);
-
-                    printout(todo, Objects.requireNonNull(assignee)); // So we don't get nullpointererror if null
                 }
             }
-
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
         if (tasksByStatus.isEmpty()) {
             System.out.println("No tasks found with done status: " + done);
         }
@@ -160,7 +143,7 @@ public class TodoItemImpl implements TodoItem{
     }
 
     @Override
-    public Collection<Todo> findByAssignee(int id) {
+    public Collection<Todo> findByAssignee(Integer id) {
         List<Todo> tasksByAssignee = new ArrayList<>();
 
         String query = "SELECT * FROM todo_item WHERE assignee_id = ?";
@@ -183,9 +166,6 @@ public class TodoItemImpl implements TodoItem{
 
                     Todo todo = new Todo(taskId, title, description, deadline, done, assignee);
                     tasksByAssignee.add(todo);
-
-                    // Use the printout method to display the task
-                    printout(todo, assignee);
                 }
             }
 
@@ -199,8 +179,6 @@ public class TodoItemImpl implements TodoItem{
         }
         return tasksByAssignee;
     }
-
-
 
     @Override
     public Collection<Todo> findByAssignee(Person person) {
@@ -226,9 +204,6 @@ public class TodoItemImpl implements TodoItem{
 
                     Todo todo = new Todo(taskId, title, description, deadline, done, person);
                     tasksByAssignee.add(todo);
-
-                    // Use the printout method to display the task
-                    printout(todo, person);
                 }
             }
 
@@ -262,22 +237,11 @@ public class TodoItemImpl implements TodoItem{
                     // Unassigned tasks have no specific assignee, so you can create a Todo object with a null assignee
                     Todo todo = new Todo(taskId, title, description, deadline, done, null);
                     unassignedTasks.add(todo);
-
-                    // Use the printout method to display the task
-                    try {
-                        printout(todo, null);
-                    } catch (NullPointerException ex) {
-                        // Handle the NullPointerException here
-                        System.err.println("Error: Assignee is null for task ID " + taskId);
-                    }
                 }
             }
-
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
-        // Print out the found tasks
         if (unassignedTasks.isEmpty()) {
             System.out.println("No unassigned tasks found.");
         }
@@ -286,8 +250,7 @@ public class TodoItemImpl implements TodoItem{
 
     @Override
     public Todo findById(int id) {
-        System.out.println("Attempting to find task with ID: " + id); // Debug statement
-
+        Todo todo = new Todo();
         String query = "SELECT * FROM todo_item WHERE todo_id = ?";
         try (
                 Connection connection = MySQLConnection.getConnection();
@@ -306,22 +269,20 @@ public class TodoItemImpl implements TodoItem{
 
                     // Retrieve the assignee information from the Person table
                     Person assignee = getPersonById(assigneeId);
-                    Todo todo = new Todo(taskId, title, description, deadline, done, assignee);
-                    printout(todo, Objects.requireNonNull(assignee));
+                    todo = new Todo(taskId, title, description, deadline, done, assignee);
                     return todo;
+
                 } else {
                     System.out.println("Todo with ID " + id + " not found.");
+                    return null;
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
             System.err.println("Error while executing SQL query: " + e.getMessage());
         }
-
-        return null;
+        return todo;
     }
-
-
 
     @Override
     public boolean delete(int id) {
@@ -334,7 +295,7 @@ public class TodoItemImpl implements TodoItem{
 
             int rowsDeleted = preparedStatement.executeUpdate();
             if (rowsDeleted > 0) {
-                System.out.println("Todo with ID " + id + " deleted successfully!");
+//                System.out.println("Todo with ID " + id + " deleted successfully!");
                 return true;
             }
         } catch (SQLException e) {
@@ -342,50 +303,6 @@ public class TodoItemImpl implements TodoItem{
         }
 
         System.out.println("Todo with ID " + id + " not found. Deletion failed.");
-        return false;
-    }
-
-    // Helper method to check if a task with the given ID exists
-    private boolean todoExists(int id) {
-        String query = "SELECT COUNT(*) FROM todo_item WHERE todo_id = ?";
-        try (
-                Connection connection = MySQLConnection.getConnection();
-                PreparedStatement preparedStatement = connection.prepareStatement(query)
-        ) {
-            preparedStatement.setInt(1, id);
-
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    int count = resultSet.getInt(1);
-                    return count > 0;
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return false;
-    }
-
-    // Helper method to check if a task with the same title, description, and assignee ID exists
-    private boolean taskExists(String title, String description, int assigneeId) {
-        String query = "SELECT COUNT(*) FROM todo_item WHERE title = ? AND description = ? AND assignee_id = ?";
-        try (
-                Connection connection = MySQLConnection.getConnection();
-                PreparedStatement preparedStatement = connection.prepareStatement(query)
-        ) {
-            preparedStatement.setString(1, title);
-            preparedStatement.setString(2, description);
-            preparedStatement.setInt(3, assigneeId);
-
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    int count = resultSet.getInt(1);
-                    return count > 0;
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
         return false;
     }
 
@@ -408,17 +325,7 @@ public class TodoItemImpl implements TodoItem{
         }
         return null; // Return null if no matching person is found
     }
-    private void printout(Todo todo, Person assignee){
-        // Print out all the fields for the retrieved task
-        System.out.println("Found Task: ");
-        System.out.println("ID: " + todo.getId());
-        System.out.println("Title: " + todo.getTitle());
-        System.out.println("Description: " + todo.getDescription());
-        System.out.println("Deadline: " + todo.getDeadline());
-        System.out.println("Done: " + todo.isDone());
-        System.out.println("Assignee: " + assignee.getFirstName() + " " + assignee.getLastName());
-        System.out.println("-----------------------------------------");
-    }
+
     // Helper method to retrieve the ID of a person by first and last name
     private int getPersonIdByName(String firstName, String lastName) {
         try (Connection connection = MySQLConnection.getConnection();

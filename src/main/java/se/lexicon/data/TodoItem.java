@@ -10,7 +10,7 @@ public interface TodoItem {
     Todo update(Todo todo);
     Collection<Todo> findAll();
     Collection<Todo> findByDoneStatus(boolean done);
-    Collection<Todo> findByAssignee(int id);
+    Collection<Todo> findByAssignee(Integer id);
     Collection<Todo> findByAssignee(Person person);
     Collection<Todo> findByUnassignedTodoItems();
     Todo findById(int id);

@@ -13,6 +13,13 @@ public class Todo {
     public Todo() {
     }
 
+    public Todo(String title, String description, LocalDate deadline, boolean done) {
+        this.title = title;
+        this.description = description;
+        this.deadline = deadline;
+        this.done = done;
+    }
+
     public Todo(int id) {
         this.id = id;
     }
@@ -45,6 +52,10 @@ public class Todo {
     // Getters and Setters
     public int getId() {
         return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
     }
 
     public String getTitle() {
